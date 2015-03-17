@@ -1,4 +1,5 @@
 require 'dnssd'
+require 'cgi'
 
 class Bananajour::Bonjour::Advertiser
   def initialize
@@ -12,7 +13,7 @@ class Bananajour::Bonjour::Advertiser
     def register_app
       STDOUT.puts "Registering #{Bananajour.web_uri}"
       tr = DNSSD::TextRecord.new
-      tr["name"] = Bananajour.config.name
+      tr["name"] = CGI.escape(Bananajour.config.name)
       tr["email"] = Bananajour.config.email
       tr["uri"] = Bananajour.web_uri
       tr["gravatar"] = Bananajour.gravatar
@@ -21,7 +22,7 @@ class Bananajour::Bonjour::Advertiser
     end
     def register_repos
       interrupted = false
-      while !interrupted  
+      while !interrupted
         stop_old_services
         register_new_repositories
         begin
@@ -48,7 +49,7 @@ class Bananajour::Bonjour::Advertiser
         tr = DNSSD::TextRecord.new
         tr["name"] = new_repo.name
         tr["uri"] = new_repo.uri
-        tr["bjour-name"] = Bananajour.config.name
+        tr["bjour-name"] = CGI.escape(Bananajour.config.name)
         tr["bjour-email"] = Bananajour.config.email
         tr["bjour-uri"] = Bananajour.web_uri
         tr["bjour-gravatar"] = Bananajour.gravatar
