@@ -4,7 +4,7 @@
   :sass
     #title
       :margin-left 0
-    
+
     #commit_id
       :text-transform uppercase
       :margin 0
@@ -13,25 +13,25 @@
         :color rgb(153, 136, 0)
       a:hover
         :color #760
-    
+
     p.message
       margin-left: 12px
       .meta
         :font-size 90%
         :margin-top 0
         :color #796B00
-    
+
     .codediff
       :font 90%/140% "Bitstream Vera Sans Mono", "Inconsolata", Monaco, "Courier New", Courier, monospace
       :width 100%
       :border-collapse collapse
       :margin-bottom 20px
-      
+
       th:first-child
         :-webkit-border-top-left-radius 9px
       tr:last-child td:last-child
         :-webkit-border-bottom-right-radius 9px
-      
+
       .line-num-cut
         :background #ccc
         :border-top 1px dashed #ccc
@@ -39,17 +39,17 @@
 
       th, .line_numbers
         :background #F0E342
-      
+
       th
         :text-align left
         :padding 3px 0
-      
+
       td
         :padding 0 3px
         &.line_numbers
           :text-align right
           :min-width 9px
-                    
+
         &.code
           :white-space pre-wrap
           :white-space -moz-pre-wrap
@@ -70,22 +70,22 @@
 
         &.marked
           :background #ffc !important
-        
+
         &.ins
           :width 100%
-          :background #a3ffa3        
+          :background #a3ffa3
           ins
             :text-decoration none
-        
+
         &.del
           :background #ffa3a3
           del
             :text-decoration none
-  
-  
+
+
 %h2#commit_id
   Commit
-  = @commit.id_abbrev
+  = @commit.oid
   to
   %a{:href => @repository.web_uri}= @repository.name
 
@@ -95,23 +95,24 @@
     %br/
   %span.meta
     \~
-    = @commit.committed_date.strftime('%a %b %e %I:%M%p').sub(/\b0(\d+):/, '\1:').sub('AM', 'am').sub('PM', 'pm')
-    - unless @commit.committed_date.year == Time.now.year
-      = @commit.committed_date.strftime(' %Y')
+    = @commit.author[:time].strftime('%a %b %e %I:%M%p').sub(/\b0(\d+):/, '\1:').sub('AM', 'am').sub('PM', 'pm')
+    - unless @commit.author[:time].year == Time.now.year
+      = @commit.author[:time].strftime(' %Y')
     by
-    %span.author&= @commit.author
+    %span.author&= @commit.author[:name]
 
-- for diff in @commit.diffs
-  - filename, lines = parse_diff(diff)
+- diff = @repository.rugged_repo.diff(@commit.parents.map(&:oid).first, @commit.oid)
+- diff.patches.to_enum.with_index do |patch, i|
   %table.codediff
     %thead
       %tr
         %th
         %th
-        %th= filename
+        %th= diff.deltas[i].new_file[:path]
     %tbody
-      - for line in lines
-        %tr.changes
-          %td.line_numbers= line.op == DiffHelpers::DIFF_INS ? '' : line.num
-          %td.line_numbers= line.op == DiffHelpers::DIFF_DEL ? '' : line.num
-          %td{:class => diff_op_css_class(line.op)}= html_escape(line.body)
+      - for hunk in patch.hunks
+        - for line in hunk.lines
+          %tr.changes
+            %td.line_numbers= line.line_origin == DiffHelpers::DIFF_INS ? '' : line.old_lineno
+            %td.line_numbers= line.line_origin == DiffHelpers::DIFF_DEL ? '' : line.new_lineno
+            %td{:class => diff_op_css_class(line.line_origin)}= html_escape(line.content)

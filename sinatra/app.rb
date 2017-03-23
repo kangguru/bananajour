@@ -55,15 +55,14 @@ end
 
 get "/:repository/readme" do
   @repository      = Bananajour::Repository.for_name(params[:repository])
-  readme_file      = @repository.readme_file
   @rendered_readme = @repository.rendered_readme
-  @plain_readme    = readme_file.data
+  @plain_readme    = @repository.raw_readme_file
   haml :readme
 end
 
 get "/:repository/:commit" do
   @repository = Bananajour::Repository.for_name(params[:repository])
-  @commit     = @repository.grit_repo.commit(params[:commit])
+  @commit     = @repository.rugged_repo.lookup(params[:commit])
   haml :commit
 end
 
@@ -73,6 +72,7 @@ end
 
 get "/:repository.json" do
   response = Bananajour::Repository.for_name(params[:repository]).to_hash
-  response["recent_commits"].map! { |c| c["committed_date_pretty"] = time_ago_in_words(Time.parse(c["committed_date"])).gsub("about ","") + " ago"; c }
+
+  response["recent_commits"].map! { |c| c["committed_date_pretty"] = time_ago_in_words(c[:committer][:time]).gsub("about ","") + " ago"; c }
   json response.to_json
 end

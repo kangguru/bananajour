@@ -1,8 +1,8 @@
 require 'ostruct'
 
 module DiffHelpers
-  DIFF_INS  =  1
-  DIFF_DEL  = -1
+  DIFF_INS  = :addition
+  DIFF_DEL  = :deletion
   DIFF_NOOP =  0
 
   def parse_diff(diff)

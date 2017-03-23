@@ -1,4 +1,4 @@
-require 'grit'
+require 'rugged'
 require 'pathname'
 
 module Bananajour
@@ -41,23 +41,36 @@ module Bananajour
     def web_uri
       Bananajour.web_uri + "#" + html_id
     end
-    def grit_repo
-      @grit_repo ||= Grit::Repo.new(path)
+    def rugged_repo
+      @rugged_repo ||= Rugged::Repository.new(path.to_s)
     end
+
+    def rugged_walker
+      @rugged_walker ||= Rugged::Walker.new(rugged_repo)
+      @rugged_walker.tap{|w| w.push(rugged_repo.head.name) }
+    end
+
     def recent_commits
-      @commits ||= grit_repo.commits(nil, 10)
+      @commits ||= rugged_walker.each(limit: 10).to_a
     end
+
     def readme_file
-      grit_repo.tree.contents.find {|c| c.name =~ /readme/i}
+      rugged_repo.head.target.tree.find{|file| file[:name] =~ /readme/i }
     end
+
+    def raw_readme_file
+      return unless readme_file
+      rugged_repo.lookup(readme_file[:oid]).content
+    end
+
     def rendered_readme
-      case File.extname(readme_file.name)
+      case readme_file[:name]
       when /\.md/i, /\.markdown/i
         require 'rdiscount'
-        RDiscount.new(readme_file.data).to_html
+        RDiscount.new(raw_readme_file).to_html
       when /\.textile/i
         require 'redcloth'
-        RedCloth.new(readme_file.data).to_html(:textile)
+        RedCloth.new(raw_readme_file).to_html(:textile)
       end
     rescue LoadError
       ""
@@ -66,7 +79,7 @@ module Bananajour
       path.rmtree
     end
     def to_hash
-      heads = grit_repo.heads
+      heads = [rugged_repo.head]
       {
         "name" => name,
         "html_friendly_name" => html_id, # TODO: Deprecate in v3. Renamed to html_id since 2.1.4
@@ -75,8 +88,9 @@ module Bananajour
         "heads" => heads.map {|h| h.name},
         "recent_commits" => recent_commits.collect do |c|
           c.to_hash.merge(
-            "head" => (head = heads.find {|h| h.commit == c}) && head.name,
-            "gravatar" => c.author.gravatar_uri
+            "id" => c.oid,
+            "head" => rugged_repo.head.name,
+            "gravatar" => Bananajour.gravatar_uri(c.author[:email])
           )
         end,
         "bananajour" => Bananajour.to_hash
